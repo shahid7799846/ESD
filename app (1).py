@@ -3,18 +3,12 @@ import streamlit as st
 import joblib
 import re
 
-# -----------------------------
-# 1. Load trained ML model
-# -----------------------------
-
+# Load trained model and vectorizer
 model = joblib.load("spam_model.pkl")
 tfidf = joblib.load("tfidf_vectorizer.pkl")
 
 
-# -----------------------------
-# 2. Text cleaning function
-# -----------------------------
-
+# Text cleaning function
 def clean_text(text):
     text = text.lower()
     text = re.sub(r'http\S+|www\S+', '', text)
@@ -24,76 +18,125 @@ def clean_text(text):
     return text
 
 
-# -----------------------------
-# 3. Streamlit page
-# -----------------------------
-
+# Page configuration
 st.set_page_config(
-    page_title="Email Spam Detection",
-    page_icon="📧"
+    page_title="Email Spam Detector",
+    page_icon="📧",
+    layout="centered"
 )
 
-st.title("📧 Email Spam Detection System")
+# Custom CSS
+st.markdown("""
+<style>
+.main {
+    background-color: #f5f7fb;
+}
+.title {
+    text-align: center;
+    color: #2563eb;
+    font-size: 35px;
+    font-weight: bold;
+}
+.subtitle {
+    text-align: center;
+    color: gray;
+    font-size: 16px;
+}
+</style>
+""", unsafe_allow_html=True)
 
-st.write(
-    "Check whether an email is Spam or Normal."
+
+# Application heading
+st.markdown(
+    '<div class="title">📧 Email Spam Detector</div>',
+    unsafe_allow_html=True
 )
 
-# -----------------------------
-# 4. Email input
-# -----------------------------
+st.markdown(
+    '<div class="subtitle">AI-powered Email Classification System</div>',
+    unsafe_allow_html=True
+)
 
-email = st.text_area("Enter your email message:")
+st.divider()
 
 
-# -----------------------------
-# 5. Prediction button
-# -----------------------------
+# Email input section
+st.subheader("Enter Your Email")
 
-if st.button("Check Email"):
+email = st.text_area(
+    "Paste your email message below:",
+    height=180,
+    placeholder="Enter email content here..."
+)
+
+
+# Prediction
+if st.button("🔍 Analyze Email", use_container_width=True):
 
     if email.strip() == "":
-        st.warning("Please enter an email.")
+        st.warning("Please enter an email message.")
 
     else:
-        # Clean email
         cleaned_email = clean_text(email)
 
-        # Convert text into TF-IDF features
         email_features = tfidf.transform([cleaned_email])
 
-        # Predict category
         prediction = model.predict(email_features)[0]
 
-        # Calculate probabilities
         probabilities = model.predict_proba(email_features)[0]
 
-        # Get class names
         classes = model.classes_
 
-        # Calculate confidence
         confidence = (
             probabilities[list(classes).index(prediction)] * 100
         )
 
         # Display prediction
-        if prediction == "spam":
-            st.error("🚨 This email is SPAM!")
-        else:
-            st.success("✅ This email is NORMAL (HAM).")
+        st.divider()
+        st.subheader("Analysis Results")
 
-        # Display confidence
-        st.subheader("Prediction Confidence")
+        if prediction == "spam":
+            st.error("🚨 SPAM EMAIL DETECTED")
+        else:
+            st.success("✅ NORMAL EMAIL (HAM)")
+
+        # Confidence section
+        st.write("Prediction Confidence")
+
+        st.progress(int(confidence))
 
         st.metric(
-            label="Model Confidence",
-            value=f"{confidence:.2f}%"
+            "Confidence",
+            f"{confidence:.2f}%"
         )
 
-        # Display probabilities
+        # Probability section
         st.subheader("Class Probabilities")
 
-        for class_name, probability in zip(classes, probabilities):
-            st.write(
-                f"{class_name.upper()}: {probability * 100:.2f}%"
-            )
+        col1, col2 = st.columns(2)
+
+        probability_dict = dict(zip(classes, probabilities))
+
+        ham_probability = probability_dict.get("ham", 0) * 100
+        spam_probability = probability_dict.get("spam", 0) * 100
+
+        col1.metric(
+            "HAM",
+            f"{ham_probability:.2f}%"
+        )
+
+        col2.metric(
+            "SPAM",
+            f"{spam_probability:.2f}%"
+        )
+
+        st.divider()
+
+        st.caption(
+            "Powered by Machine Learning | Naive Bayes + TF-IDF"
+        )
+
+# Footer
+st.divider()
+
+st.caption("Email Spam Detection Project | AIML")
