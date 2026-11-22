@@ -2,13 +2,19 @@
 import streamlit as st
 import joblib
 import re
+import pandas as pd
 
-# Load trained model and vectorizer
+# Load model and vectorizer
 model = joblib.load("spam_model.pkl")
 tfidf = joblib.load("tfidf_vectorizer.pkl")
 
 
-# Text cleaning function
+# Initialize prediction history
+if "history" not in st.session_state:
+    st.session_state.history = []
+
+
+# Clean email text
 def clean_text(text):
     text = text.lower()
     text = re.sub(r'http\S+|www\S+', '', text)
@@ -25,56 +31,27 @@ st.set_page_config(
     layout="centered"
 )
 
-# Custom CSS
-st.markdown("""
-<style>
-.main {
-    background-color: #f5f7fb;
-}
-.title {
-    text-align: center;
-    color: #2563eb;
-    font-size: 35px;
-    font-weight: bold;
-}
-.subtitle {
-    text-align: center;
-    color: gray;
-    font-size: 16px;
-}
-</style>
-""", unsafe_allow_html=True)
-
-
-# Application heading
-st.markdown(
-    '<div class="title">📧 Email Spam Detector</div>',
-    unsafe_allow_html=True
-)
-
-st.markdown(
-    '<div class="subtitle">AI-powered Email Classification System</div>',
-    unsafe_allow_html=True
-)
+# Heading
+st.title("📧 Email Spam Detector")
+st.write("AI-powered Email Classification System")
 
 st.divider()
 
 
-# Email input section
+# Email input
 st.subheader("Enter Your Email")
 
 email = st.text_area(
-    "Paste your email message below:",
-    height=180,
-    placeholder="Enter email content here..."
+    "Paste your email:",
+    height=150
 )
 
 
-# Prediction
+# Analyze button
 if st.button("🔍 Analyze Email", use_container_width=True):
 
     if email.strip() == "":
-        st.warning("Please enter an email message.")
+        st.warning("Please enter an email.")
 
     else:
         cleaned_email = clean_text(email)
@@ -91,52 +68,56 @@ if st.button("🔍 Analyze Email", use_container_width=True):
             probabilities[list(classes).index(prediction)] * 100
         )
 
+        # Save prediction in history
+        st.session_state.history.append({
+            "Email": email[:100],
+            "Prediction": prediction.upper(),
+            "Confidence": round(confidence, 2)
+        })
+
         # Display prediction
-        st.divider()
-        st.subheader("Analysis Results")
+        st.subheader("Prediction Result")
 
         if prediction == "spam":
             st.error("🚨 SPAM EMAIL DETECTED")
         else:
             st.success("✅ NORMAL EMAIL (HAM)")
 
-        # Confidence section
-        st.write("Prediction Confidence")
-
-        st.progress(int(confidence))
-
         st.metric(
-            "Confidence",
+            "Prediction Confidence",
             f"{confidence:.2f}%"
         )
 
-        # Probability section
-        st.subheader("Class Probabilities")
 
-        col1, col2 = st.columns(2)
+# Prediction history
+st.divider()
 
-        probability_dict = dict(zip(classes, probabilities))
+st.subheader("📊 Prediction History")
 
-        ham_probability = probability_dict.get("ham", 0) * 100
-        spam_probability = probability_dict.get("spam", 0) * 100
+if len(st.session_state.history) > 0:
 
-        col1.metric(
-            "HAM",
-            f"{ham_probability:.2f}%"
-        )
+    history_df = pd.DataFrame(st.session_state.history)
 
-        col2.metric(
-            "SPAM",
-            f"{spam_probability:.2f}%"
-        )
+    st.dataframe(
+        history_df,
+        use_container_width=True
+    )
 
-        st.divider()
+    st.write(
+        "Total Emails Analyzed:",
+        len(st.session_state.history)
+    )
 
-        st.caption(
-            "Powered by Machine Learning | Naive Bayes + TF-IDF"
-        )
+    # Clear history button
+    if st.button("🗑️ Clear History"):
+        st.session_state.history = []
+        st.rerun()
+
+else:
+    st.info("No prediction history available yet.")
+
 
 # Footer
 st.divider()
 
-st.caption("Email Spam Detection Project | AIML")
+st.caption("Email Spam Detection | AIML Project")
